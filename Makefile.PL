@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 # $File: //member/autrijus/Template-Generate/Makefile.PL $ $Author: autrijus $
-# $Revision: #1 $ $Change: 7841 $ $DateTime: 2003/09/02 16:54:33 $
+# $Revision: #2 $ $Change: 8137 $ $DateTime: 2003/09/14 20:18:55 $
 
-use 5.006;
+use 5.006001;
 use inc::Module::Install;
 
 WriteMakefile (

@@ -1,10 +1,10 @@
 # $File: //member/autrijus/Template-Generate/lib/Template/Generate.pm $ $Author: autrijus $
-# $Revision: #3 $ $Change: 7849 $ $DateTime: 2003/09/03 20:36:51 $ vim: expandtab shiftwidth=4
+# $Revision: #8 $ $Change: 8137 $ $DateTime: 2003/09/14 20:18:55 $ vim: expandtab shiftwidth=4
 
 package Template::Generate;
-$Template::Generate::VERSION = '0.02';
+$Template::Generate::VERSION = '0.03';
 
-use 5.006;
+use 5.006001;
 use strict;
 use warnings;
 our $DEBUG;
@@ -15,8 +15,8 @@ Template::Generate - Generate TT2 templates from data and documents
 
 =head1 VERSION
 
-This document describes version 0.02 of Template::Generate, released
-September 4, 2003.
+This document describes version 0.03 of Template::Generate, released
+September 15, 2003.
 
 =head1 SYNOPSIS
 
@@ -116,6 +116,7 @@ sub _try {
     my ( @m, @rv );
     {
 	use re 'eval';
+        print $regex if $DEBUG;
 	$regex                =~ s/\n//g;
 	( $$document . "\0" ) =~ m/$regex/s;
     }
@@ -154,7 +155,7 @@ sub _match {
 
 	    foreach my $idx ( 1 .. $#$value ) {
 		++$$count;
-		$rv .= "(\\$c1)(?{\$m[\$-[$$count]]  = [undef, \$$c1]})\n";
+		$rv .= "(\\$c1)(?{\$m[\$-[$$count]]  = [ undef, \$$c1 ]})\n";
 		$rv .= _match(
                     $value->[$idx],
                     $count,
@@ -162,7 +163,7 @@ sub _match {
                     'undef'
 		);
 		++$$count;
-		$rv .= "(\\$c2)(?{\$m[\$-[$$count]]  = [undef, \$$c2]})\n";
+		$rv .= "(\\$c2)(?{\$m[\$-[$$count]]  = [ undef, \$$c2 ]})\n";
 	    }
 	    $rv .= "|\n";
 	}
@@ -187,8 +188,26 @@ sub _validate {
     my $rv   = '';
     while ( defined( my $val = $in->[$idx] ) ) {
 	if ( ref($val) eq 'SCALAR' ) {
+            no warnings 'uninitialized';
 	    $seen{$$val} = 1;
-	    $idx += length( eval("\$data->$$val") );
+            my $obj = $data;
+            my $cur = $$val;
+            my $pos;
+            while ($cur) {
+                if (substr($cur, 0, 1) eq '{') {
+                    $pos = index($cur, '}');
+                    $obj = $obj->{substr($cur, 1, $pos - 1)};
+                }
+                elsif (substr($cur, 0, 1) eq '[') {
+                    $pos = index($cur, ']');
+                    $obj = $obj->[substr($cur, 1, $pos - 1)];
+                }
+                else {
+                    die "Impossible: $cur";
+                }
+                $cur = substr($cur, $pos + 1);
+            }
+	    $idx += length( $obj );
 	    $rv .= "[% " . substr( $$val, rindex( $$val, '{' ) + 1, -1 ) . " %]";
 	    next;
 	}
