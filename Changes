@@ -1,0 +1,6 @@
+____________________________________________________________________________
+[  7841] By: autrijus                              on 2003/09/02  16:54:33
+        Log: * This be the 0.01, initial release.
+             * (without [% FOREACH %] or [% ... %]).
+	   + Makefile.PL README lib/Template/Generate.pm
+	   + t/0-signature.t t/1-basic.t
