@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 # $File: //member/autrijus/Template-Generate/t/1-basic.t $ $Author: autrijus $
-# $Revision: #3 $ $Change: 7850 $ $DateTime: 2003/09/03 20:38:46 $ vim: expandtab shiftwidth=4
+# $Revision: #4 $ $Change: 8169 $ $DateTime: 2003/09/18 06:21:31 $ vim: expandtab shiftwidth=4
 
 use strict;
 use Test;
 
-BEGIN { plan tests => 5 }
+BEGIN { plan tests => 6 };
 
 require Template::Generate;
 ok(Template::Generate->VERSION);
@@ -38,3 +38,11 @@ ok("@template",  "(Simon's Blog) Score: [% score %], Name: [% first %] [% last %
 
 my $template = $obj->generate(@input);
 ok($template,  "(Simon's Blog) Score: [% score %], Name: [% first %] [% last %]");
+
+$doc = "1";
+$data = {foo => [{bar => [{baz => 1}]}]};
+ok(
+    $obj->generate($data => $doc), 
+    '[% FOREACH foo %][% FOREACH bar %][% baz %][% END %][% END %]',
+);
+

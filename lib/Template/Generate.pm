@@ -1,8 +1,8 @@
 # $File: //member/autrijus/Template-Generate/lib/Template/Generate.pm $ $Author: autrijus $
-# $Revision: #8 $ $Change: 8137 $ $DateTime: 2003/09/14 20:18:55 $ vim: expandtab shiftwidth=4
+# $Revision: #9 $ $Change: 8169 $ $DateTime: 2003/09/18 06:21:31 $ vim: expandtab shiftwidth=4
 
 package Template::Generate;
-$Template::Generate::VERSION = '0.03';
+$Template::Generate::VERSION = '0.04';
 
 use 5.006001;
 use strict;
@@ -15,8 +15,8 @@ Template::Generate - Generate TT2 templates from data and documents
 
 =head1 VERSION
 
-This document describes version 0.03 of Template::Generate, released
-September 15, 2003.
+This document describes version 0.04 of Template::Generate, released
+September 18, 2003.
 
 =head1 SYNOPSIS
 
@@ -68,8 +68,8 @@ generated regular expressions.
 =head1 CAVEATS
 
 Currently, the C<generate> method only handles C<[% GET %]> and
-single-level C<[% FOREACH %]> directives, but nested C<[% FOREACH %]>
-and C<[% ... %]> is planned.
+C<[% FOREACH %]> directives (both single-level and nested), although
+support for C<[% ... %]> is planned in the future.
 
 =cut
 
@@ -86,10 +86,13 @@ sub generate {
 	my $repeat   = keys(%$data);
 	my ( @each, @this );
 	do {
-	    @this =
-	      _try( $data, ( ref($document) ? $document : \$document ),
-		$repeat++ );
-	    push @each, @this;
+	    push @each, (
+                @this = _try(
+                    $data,
+                    ( ref($document) ? $document : \$document ),
+                    $repeat++,
+                )
+            );
 	} while @this;
 	%seen = map { $final = $_; $_ => 1 }
                 grep { !%seen or $seen{$_} } @each
@@ -117,8 +120,8 @@ sub _try {
     {
 	use re 'eval';
         print $regex if $DEBUG;
-	$regex                =~ s/\n//g;
-	( $$document . "\0" ) =~ m/$regex/s;
+	$regex      =~ s/\n//g;
+	$$document  =~ m/$regex/s;
     }
     return @rv;
 }
@@ -131,39 +134,38 @@ sub _match {
 	my $value = $data->{$key};
 	if ( !ref($value) ) {
 	    $$count++;
+            my $pat = '(' . quotemeta($value) . ')';
 	    if ($undef) {
-		$rv .= "("
-		  . quotemeta($value)
-		  . ")(?{\$m[\$-[$$count]] = [ undef, \$$$count ]})\n|\n";
+		$rv .= _set( $pat, $count, "[ undef, \$$$count ]})\n|" );
 	    }
 	    else {
-		$rv .= "("
-		  . quotemeta($value)
-		  . ")(?{\$m[\$-[$$count]] = \\'{$prefix$key}'})\n|\n";
+		$rv .= _set( $pat, $count, "\\'{$prefix$key}'})\n|" );
 	    }
 	}
 	elsif ( UNIVERSAL::isa( $value, 'ARRAY' ) ) {
             die "Array $key must have at least one element" unless @$value;
 
 	    my $c1 = ++$$count;
-	    $rv .= "(.*?)(?{\$m[\$-[$$count]] = ['[% FOREACH $key %]', \$$$count, '']})\n";
+	    $rv .= _set( '(.*?)', $count, "['[% FOREACH $key %]', \$$$count, '']})" );
 
 	    $rv .= _match( $value->[0], $count, "$prefix$key}[0]{" );
 
 	    my $c2 = ++$$count;
-	    $rv .= "(.*?)(?{\$m[\$-[$$count]] = ['', \$$$count, '[% END %]']})\n";
+	    $rv .= _set( '(.*?)', $count, "['', \$$$count, '[% END %]']})" );
 
 	    foreach my $idx ( 1 .. $#$value ) {
 		++$$count;
-		$rv .= "(\\$c1)(?{\$m[\$-[$$count]]  = [ undef, \$$c1 ]})\n";
+		$rv .= _set( "(\\$c1)", $count, "[ undef, \$$c1 ]})" );
+
 		$rv .= _match(
                     $value->[$idx],
                     $count,
 		    "$prefix$key}[$idx]{",
                     'undef'
 		);
+
 		++$$count;
-		$rv .= "(\\$c2)(?{\$m[\$-[$$count]]  = [ undef, \$$c2 ]})\n";
+		$rv .= _set( "(\\$c2)", $count, "[ undef, \$$c2 ]})" );
 	    }
 	    $rv .= "|\n";
 	}
@@ -178,7 +180,11 @@ sub _match {
 sub _any {
     my $count = shift;
     $$count++;
-    "(.*?)(?{\$m[\$-[$$count]] = \$$$count})\n";
+    return _set('(.*?)', $count, "\$$$count})");
+}
+
+sub _set {
+    return "$_[0](?{\$m[\$-[${$_[1]}]][${$_[1]}] = $_[2]\n";
 }
 
 sub _validate {
@@ -186,40 +192,45 @@ sub _validate {
     my $idx  = 0;
     my %seen = ();
     my $rv   = '';
-    while ( defined( my $val = $in->[$idx] ) ) {
-	if ( ref($val) eq 'SCALAR' ) {
-            no warnings 'uninitialized';
-	    $seen{$$val} = 1;
-            my $obj = $data;
-            my $cur = $$val;
-            my $pos;
-            while ($cur) {
-                if (substr($cur, 0, 1) eq '{') {
-                    $pos = index($cur, '}');
-                    $obj = $obj->{substr($cur, 1, $pos - 1)};
+    while ( defined( my $ary = $in->[$idx] ) ) {
+        my $prev = $idx;
+        foreach my $val (grep defined, @$ary) {
+            if ( ref($val) eq 'SCALAR' ) {
+                $seen{$$val} = 1;
+                my $obj = $data;
+                my $cur = $$val;
+                my $pos;
+                while ($cur) {
+                    if (substr($cur, 0, 1) eq '{') {
+                        $pos = index($cur, '}');
+                        $obj = $obj->{substr($cur, 1, $pos - 1)};
+                    }
+                    elsif (substr($cur, 0, 1) eq '[') {
+                        $pos = index($cur, ']');
+                        $obj = $obj->[substr($cur, 1, $pos - 1)];
+                    }
+                    else {
+                        die "Impossible: $cur";
+                    }
+                    $cur = substr($cur, $pos + 1);
                 }
-                elsif (substr($cur, 0, 1) eq '[') {
-                    $pos = index($cur, ']');
-                    $obj = $obj->[substr($cur, 1, $pos - 1)];
-                }
-                else {
-                    die "Impossible: $cur";
-                }
-                $cur = substr($cur, $pos + 1);
+                $idx += length( $obj );
+                $rv .= "[% " .
+                       substr( $$val, rindex( $$val, '{' ) + 1, -1 ) .
+                       " %]";
             }
-	    $idx += length( $obj );
-	    $rv .= "[% " . substr( $$val, rindex( $$val, '{' ) + 1, -1 ) . " %]";
-	    next;
-	}
-	elsif ( ref($val) eq 'ARRAY' ) {
-	    $rv .= join( '', @$val ) if @$val == 3;
-	    $idx += length( $val->[1] );
-	    next;
-	}
-	$rv .= $val;
-	$idx += length($val);
+            elsif ( ref($val) eq 'ARRAY' ) {
+                $rv .= join( '', @$val ) if @$val == 3;
+                $idx += length( $val->[1] );
+            }
+            else {
+                $rv .= $val;
+                $idx += length($val);
+            }
+            last unless $prev == $idx;
+        }
+        last if $prev == $idx;
     }
-    chop $rv;
     push @$out, $rv if keys(%seen) == keys(%$data);
     return '(?!)';
 }

@@ -14,9 +14,9 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 6d7497be19415e7660c4e58fbfd2020fa6b810f2 Changes
+SHA1 5f2b2fe5f92d904102c159e4bcee87e97c9bcb29 Changes
 SHA1 61da229ed0512ecb71dff04f6dae47aa3615be57 MANIFEST
-SHA1 eab5e7ea498e02890c7808458c70acdd816e9d03 META.yml
+SHA1 237790c3d40550e98d198fa393d83bc11f78671e META.yml
 SHA1 7beed7667433a85888102c33e08d4040cbf8d140 Makefile.PL
 SHA1 e1a1c4e71a9fb3c115f8042c53e3939dfadbaaa3 README
 SHA1 2b6751f9e3f78bfba9ebf348d9d99ddbde9d35e8 inc/Module/Install.pm
@@ -24,13 +24,13 @@ SHA1 0e59a6491b7275cacf070218c862a42e8135f6d8 inc/Module/Install/Base.pm
 SHA1 cb63ee2fceecea6f93cc25bfb5cc122ca6870ed8 inc/Module/Install/MakeMaker.pm
 SHA1 f042d91d7f691e36c8bcb0b495dfc0b9f92576c3 inc/Module/Install/Makefile.pm
 SHA1 5494a21ff1755b95f0d36c788e4816af0c804645 inc/Module/Install/Metadata.pm
-SHA1 50d2cfa50c259d18724ca36ea6eb06f7250e23c0 lib/Template/Generate.pm
+SHA1 b720e679a551f40abd6c227580f2cc9fac552fb5 lib/Template/Generate.pm
 SHA1 c6dac82d533f64b133243f604c1a69c4cdf1580e t/0-signature.t
-SHA1 45d6114e13ce6db6aea8a66f77bbb2ef8a58f060 t/1-basic.t
+SHA1 2d411f024babad712f68b5703971fd65680e8dea t/1-basic.t
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.3 (FreeBSD)
 
-iD8DBQE/ZM1etLPdNzw1AaARAgODAJ0X5FquDrcUHv7qRsUsJT1n5A4W4wCfSoWo
-wta1XgaZrX78SZVNsL8Jqws=
-=WUFd
+iD8DBQE/aU9utLPdNzw1AaARAmTMAJ4uv/slKuUJXAIescy5lobQBdgoKgCfVyvP
+fY/TLJdwEbe+DcQ1rMwomBk=
+=YwwC
 -----END PGP SIGNATURE-----
