@@ -1,4 +1,15 @@
 ____________________________________________________________________________
+[  7849] By: autrijus                              on 2003/09/03  20:36:51
+        Log: * This be 0.02.
+             * primitive support for one-level [% FOREACH %] block;
+             see t/1-basic.t for details.
+	   ! lib/Template/Generate.pm t/1-basic.t
+____________________________________________________________________________
+[  7844] By: autrijus                              on 2003/09/02  19:04:03
+        Log: * Randal Schwartz points out a recursive
+	       L<Template::Generate>
+	   ! lib/Template/Generate.pm
+____________________________________________________________________________
 [  7841] By: autrijus                              on 2003/09/02  16:54:33
         Log: * This be the 0.01, initial release.
              * (without [% FOREACH %] or [% ... %]).

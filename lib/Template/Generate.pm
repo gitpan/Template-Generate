@@ -1,12 +1,13 @@
 # $File: //member/autrijus/Template-Generate/lib/Template/Generate.pm $ $Author: autrijus $
-# $Revision: #1 $ $Change: 7841 $ $DateTime: 2003/09/02 16:54:33 $ vim: expandtab shiftwidth=4
+# $Revision: #3 $ $Change: 7849 $ $DateTime: 2003/09/03 20:36:51 $ vim: expandtab shiftwidth=4
 
 package Template::Generate;
-$Template::Generate::VERSION = '0.01';
+$Template::Generate::VERSION = '0.02';
 
 use 5.006;
 use strict;
 use warnings;
+our $DEBUG;
 
 =head1 NAME
 
@@ -14,8 +15,8 @@ Template::Generate - Generate TT2 templates from data and documents
 
 =head1 VERSION
 
-This document describes version 0.01 of Template::Generate, released
-September 3, 2003.
+This document describes version 0.02 of Template::Generate, released
+September 4, 2003.
 
 =head1 SYNOPSIS
 
@@ -58,91 +59,142 @@ This module is considered experimental.
 =head2 generate($data => $document, $data => $document, ...)
 
 This method takes any number of ($data, $document) pairs, and returns a
-sorted list of possible templates that can satisfy all of them.
+sorted list of possible templates that can satisfy all of them.  In scalar
+context, the template with most variables is returned.
 
-In scalar context, only the first item is returned.
+You may set C<$Template::Generate::DEBUG> to a true value to display
+generated regular expressions.
 
 =head1 CAVEATS
 
-Currently, the C<generate> method only handles C<[% GET %]> directives,
-but support for C<[% FOREACH %]> and C<[% ... %]> is planned.
+Currently, the C<generate> method only handles C<[% GET %]> and
+single-level C<[% FOREACH %]> directives, but nested C<[% FOREACH %]>
+and C<[% ... %]> is planned.
 
 =cut
 
 sub new {
-    bless({}, $_[0]);
+    bless( {}, $_[0] );
 }
 
 sub generate {
     my $self = shift;
 
-    my %seen;
-    while (my $data = shift) {
+    my ( %seen, $final );
+    while ( my $data = shift ) {
 	my $document = shift;
-	my $repeat = keys(%$data);
-	my (@each, @this);
+	my $repeat   = keys(%$data);
+	my ( @each, @this );
 	do {
-	    @this = _try($data, (ref($document) ? $document : \$document), $repeat++);
+	    @this =
+	      _try( $data, ( ref($document) ? $document : \$document ),
+		$repeat++ );
 	    push @each, @this;
 	} while @this;
-	%seen = map { $_ => 1 } grep {
-	    !%seen or $seen{$_}
-	} @each or return;
+	%seen = map { $final = $_; $_ => 1 }
+                grep { !%seen or $seen{$_} } @each
+                or return;
     }
     return sort keys %seen if wantarray;
-    return((sort keys %seen)[0]);
+    return $final;
 }
 
 sub _try {
-    my ($data, $document, $repeat) = @_;
-    my $regex = '\A';
+    my ( $data, $document, $repeat ) = @_;
+    my $regex = "\\A\n";
     my $count = 0;
 
-    $regex .= _any(\$count);
-    for (1 .. $repeat) {
-	$regex .= _match($data, \$count);
-	$regex .= _any(\$count);
+    $regex .= _any( \$count );
+    for ( 1 .. $repeat ) {
+	$regex .= _match( $data, \$count );
+	$regex .= _any( \$count );
     }
 
-    $regex .= '\Z';
-    $regex .= '(??{_validate(\@m, \@rv, $data)})';
+    $regex .= "\\z\n";
+    $regex .= "(??{_validate(\\\@m, \\\@rv, \$data)})\n";
 
-    my (@m, @rv);
+    my ( @m, @rv );
     {
 	use re 'eval';
-	($$document . "\0") =~ $regex;
+	$regex                =~ s/\n//g;
+	( $$document . "\0" ) =~ m/$regex/s;
     }
     return @rv;
 }
 
 sub _match {
-    my ($data, $count) = @_;
-    my $rv = '(?:';
-    foreach my $key (sort keys %$data) {
-	my $value = quotemeta($data->{$key});
-	$$count++;
-	$rv .= "($value)(?{\$m[\$-[$$count]] = \\'$key'})|";
+    my ( $data, $count, $prefix, $undef ) = @_;
+    $prefix ||= '';
+    my $rv = "(?:\n";
+    foreach my $key ( sort keys %$data ) {
+	my $value = $data->{$key};
+	if ( !ref($value) ) {
+	    $$count++;
+	    if ($undef) {
+		$rv .= "("
+		  . quotemeta($value)
+		  . ")(?{\$m[\$-[$$count]] = [ undef, \$$$count ]})\n|\n";
+	    }
+	    else {
+		$rv .= "("
+		  . quotemeta($value)
+		  . ")(?{\$m[\$-[$$count]] = \\'{$prefix$key}'})\n|\n";
+	    }
+	}
+	elsif ( UNIVERSAL::isa( $value, 'ARRAY' ) ) {
+            die "Array $key must have at least one element" unless @$value;
+
+	    my $c1 = ++$$count;
+	    $rv .= "(.*?)(?{\$m[\$-[$$count]] = ['[% FOREACH $key %]', \$$$count, '']})\n";
+
+	    $rv .= _match( $value->[0], $count, "$prefix$key}[0]{" );
+
+	    my $c2 = ++$$count;
+	    $rv .= "(.*?)(?{\$m[\$-[$$count]] = ['', \$$$count, '[% END %]']})\n";
+
+	    foreach my $idx ( 1 .. $#$value ) {
+		++$$count;
+		$rv .= "(\\$c1)(?{\$m[\$-[$$count]]  = [undef, \$$c1]})\n";
+		$rv .= _match(
+                    $value->[$idx],
+                    $count,
+		    "$prefix$key}[$idx]{",
+                    'undef'
+		);
+		++$$count;
+		$rv .= "(\\$c2)(?{\$m[\$-[$$count]]  = [undef, \$$c2]})\n";
+	    }
+	    $rv .= "|\n";
+	}
+	else {
+	    die "Unsupported data type: " . ref($value);
+	}
     }
-    substr($rv, -1) = ')';
+    substr( $rv, -2 ) = ")\n";
     return $rv;
 }
 
 sub _any {
     my $count = shift;
     $$count++;
-    "(.*?)(?{\$m[\$-[$$count]] = \$$$count})";
+    "(.*?)(?{\$m[\$-[$$count]] = \$$$count})\n";
 }
 
 sub _validate {
-    my ($in, $out, $data) = @_;
-    my $idx = 0;
+    my ( $in, $out, $data ) = @_;
+    my $idx  = 0;
     my %seen = ();
-    my $rv = '';
-    while (defined(my $val = $in->[$idx])) {
-	if (ref($val)) {
+    my $rv   = '';
+    while ( defined( my $val = $in->[$idx] ) ) {
+	if ( ref($val) eq 'SCALAR' ) {
 	    $seen{$$val} = 1;
-	    $rv .= "[% $$val %]";
-	    $idx += length($data->{$$val});
+	    $idx += length( eval("\$data->$$val") );
+	    $rv .= "[% " . substr( $$val, rindex( $$val, '{' ) + 1, -1 ) . " %]";
+	    next;
+	}
+	elsif ( ref($val) eq 'ARRAY' ) {
+	    $rv .= join( '', @$val ) if @$val == 3;
+	    $idx += length( $val->[1] );
 	    next;
 	}
 	$rv .= $val;
@@ -157,7 +209,7 @@ sub _validate {
 
 =head1 SEE ALSO
 
-L<Template>, L<Template::Generate>
+L<Template>, L<Template::Extract>
 
 =head1 AUTHORS
 
@@ -173,3 +225,4 @@ modify it under the same terms as Perl itself.
 See L<http://www.perl.com/perl/misc/Artistic.html>
 
 =cut
+

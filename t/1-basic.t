@@ -1,17 +1,24 @@
 #!/usr/bin/perl
 # $File: //member/autrijus/Template-Generate/t/1-basic.t $ $Author: autrijus $
-# $Revision: #1 $ $Change: 7841 $ $DateTime: 2003/09/02 16:54:33 $ vim: expandtab shiftwidth=4
+# $Revision: #3 $ $Change: 7850 $ $DateTime: 2003/09/03 20:38:46 $ vim: expandtab shiftwidth=4
 
 use strict;
 use Test;
 
-BEGIN { plan tests => 4 }
+BEGIN { plan tests => 5 }
 
 require Template::Generate;
 ok(Template::Generate->VERSION);
 
 my $obj = Template::Generate->new;
 ok(ref($obj), 'Template::Generate');
+
+my $doc = "<ul>\n<li>1</li><li>2</li>\n</ul>";
+my $data = {record => [{val => 1}, {val => 2}]};
+ok(
+    $obj->generate($data => $doc), 
+    "<ul>\n[% FOREACH record %]<li>[% val %]</li>[% END %]\n</ul>",
+);
 
 my @input = (
     {
